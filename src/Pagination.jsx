@@ -34,16 +34,15 @@ Button.jsx
 
  */
 
-const Button = React.memo(({label, onClick, type = 'page', isActive = false}) => {
+const Button = React.memo(({label, type = 'page', isActive = false}) => {
     return <button 
-                onClick={onClick} 
                 aria-label={`page number ${label}`} 
                 data-nametype={type}
                 data-pagenum={label}
                 style={{backgroundColor: isActive ? 'orange' : 'white'}}>
                 {label}
             </button>
-});
+}, (prev, next) => prev.isActive === next.isActive);
 
 const getPageNum = (buttonType, data, currPage, totalPages) => {
     let pageNum;
@@ -65,12 +64,11 @@ export const Pagination = ({ pageSize, totalRecords, onClick }) => {
     const [currPage, setCurrPage] = useState(0);
     const totalPages = Math.ceil(totalRecords / pageSize);
 
-    const handleClick = useCallback((evt) => {
+    const handleClick = (evt) => {
         const data = evt.target.dataset;
         const buttonType = data.nametype;
-        const pageNum = Number(data.pagenum);
-        // const pageNum = getPageNum(buttonType, data, currPage, totalPages);
-        // if (pageNum === currPage) return;
+        const pageNum = getPageNum(buttonType, data, currPage, totalPages);
+        if (pageNum === currPage) return;
         setCurrPage(pageNum);
         onClick({
             pageNum,
@@ -78,13 +76,13 @@ export const Pagination = ({ pageSize, totalRecords, onClick }) => {
             pageSize, 
             totalRecords
         })
-    }, [onClick, pageSize, totalRecords]);
+    };
 
     const buttons = [];
     for (let i = 0; i < totalPages; i++) {
-        buttons.push(<Button key={`page-${i}`} label={i} onClick={handleClick} type='page' isActive={currPage === i}/>)
+        buttons.push(<Button key={`page-${i}`} label={i} type='page' isActive={currPage === i}/>)
     }
-    return <div aria-label="pagination">
+    return <div aria-label="pagination" onClick={handleClick}>
         {/* <Button type='prev' onClick={handleClick} label='prev' /> */}
         {buttons}
         {/* <Button type='next' onClick={handleClick} label='next'/> */}
