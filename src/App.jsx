@@ -1,9 +1,13 @@
 import './App.css'
-import { FileExplorer } from './FileExplorer';
+import {Counter, Button, Name} from './MyZustand/Counter'
 
 function App() {
 
-  return <FileExplorer />
+  return <div>
+    <Counter />
+    <Name />
+    <Button />
+  </div>
 }
 
 export default App
