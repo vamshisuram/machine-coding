@@ -1,15 +1,15 @@
 import {createStore} from './store';
 
-const {useStore, set} = createStore({ val: 0, name: 'vamshi' });
+const {useStore, set} = createStore({ val: 1, name: 'john doe' });
 
 export const Counter = () => {
-    const [store] = useStore();
-    return <div>{store.val}</div>
+    const [val] = useStore(({val}) => val);
+    return <div>Random Val: {val}</div>
 }
 
 export const Name = () => {
-    const [store] = useStore();
-    return <div>{store.name}</div>
+    const [name] = useStore(({name}) => name);
+    return <div>Name: {name}</div>
 }
 
 export const Button = () => {

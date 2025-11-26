@@ -12,12 +12,12 @@ import { useEffect, useState } from "react";
 
  */
 
-export const createStore = (iState) => {
-    let state = iState;
+export const createStore = (initialState) => {
+    let state = initialState;
 
     const listeners = new Set();
 
-    const get = () => state;
+    const get = (selector) => selector(state);
 
     const set = (partial) => {
 
@@ -38,15 +38,20 @@ export const createStore = (iState) => {
         return () => listeners.delete(fn)
     }
 
-    const useStore = () => {
+    const useStore = (selector) => {
         const [_, forceUpdate] = useState({})
         useEffect(() => {
-            const listener = () => forceUpdate({});
+            let prev = state;
+            const listener = (next) => {
+                if (selector(prev) !== selector(next)) {
+                    forceUpdate({});
+                }
+            }
             return subscribe(listener)
-        }, [])
-        return [get(), set]
+        }, [selector])
+        return [get(selector), set]
     }
-    
+
     return { get, set, subscribe, useStore };
 
 }
