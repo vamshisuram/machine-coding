@@ -1,4 +1,11 @@
 import React, {useState, useCallback} from 'react';
+
+const data = {
+    totalRecords: 74,
+    pageSize: 5,
+    onClick: ({ pageNum, buttonType, pageSize, totalRecords }) => console.log({ pageNum, buttonType, pageSize, totalRecords })
+};
+
 /**
 
 Requirements ===============
@@ -61,7 +68,7 @@ const getPageNum = (buttonType, data, currPage, totalPages) => {
 }
 
 export const Pagination = ({ pageSize, totalRecords, onClick }) => {
-    const [currPage, setCurrPage] = useState(0);
+    const [currPage, setCurrPage] = useState(0);   // currPage * pageSize + 1, (currPage + 1) * pageSize
     const totalPages = Math.ceil(totalRecords / pageSize);
 
     const handleClick = (evt) => {
@@ -79,13 +86,29 @@ export const Pagination = ({ pageSize, totalRecords, onClick }) => {
     };
 
     const buttons = [];
+
+    // max 6 .. first 3, last 3, ...
+    // less than 6, all pages
+
+
     for (let i = 0; i < totalPages; i++) {
         buttons.push(<Button key={`page-${i}`} label={i} type='page' isActive={currPage === i}/>)
     }
     return <div aria-label="pagination" onClick={handleClick}>
-        {/* <Button type='prev' onClick={handleClick} label='prev' /> */}
-        {buttons}
-        {/* <Button type='next' onClick={handleClick} label='next'/> */}
+        <div>
+            {/* <Button type='prev' onClick={handleClick} label='prev' /> */}
+            {buttons}
+            {/* <Button type='next' onClick={handleClick} label='next'/> */}
+        </div>
+        
+        <div>
+            {currPage * pageSize + 1} - {(currPage + 1) * pageSize} of {totalRecords}
+        </div>
+
     </div>
 }
 
+
+export const PaginationEmbed = () => {
+    return <Pagination {...data} />;
+}
