@@ -1,12 +1,10 @@
 import './App.css'
-import {Counter, Button, Name} from './MyZustand/Counter'
+import { RenderCDF } from './ConfigDrivenForms/CDF'
 
 function App() {
 
   return <div>
-    <Counter />
-    <Name />
-    <Button />
+    <RenderCDF />
   </div>
 }
 
