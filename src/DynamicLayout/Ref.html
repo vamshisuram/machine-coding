@@ -1,0 +1,272 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Minimal Dashboard Layout</title>
+  <style>
+    :root {
+      --cell-w: 120px;   /* grid cell width  */
+      --cell-h: 120px;   /* grid cell height */
+      --gap: 8px;        /* gap between items */
+      --cols: 6;         /* number of columns */
+    }
+
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:#f5f7fb; margin:0; padding:24px; }
+    h1 { font-size: 18px; margin: 0 0 12px; }
+    .grid {
+      position: relative;
+      background: #eef1f6;
+      border: 1px solid #d7dbe3;
+      border-radius: 8px;
+      padding: var(--gap);
+      width: calc(var(--cols) * var(--cell-w) + var(--gap) * (var(--cols) - 1));
+      min-height: 400px;
+      box-sizing: content-box;
+    }
+    .widget {
+      position: absolute;
+      background: #fff;
+      border: 1px solid #d7dbe3;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      overflow: hidden;
+      user-select: none;
+      transition: box-shadow 100ms ease;
+    }
+    .widget.dragging { box-shadow: 0 8px 20px rgba(0,0,0,0.15); z-index: 10; }
+    .widget .header {
+      background: #f0f3f8;
+      padding: 8px 10px;
+      font-weight: 600;
+      border-bottom: 1px solid #e3e7ee;
+      cursor: move;
+    }
+    .widget .content { padding: 12px; color:#344054; }
+    .resize {
+      position: absolute;
+      width: 12px; height: 12px;
+      right: 6px; bottom: 6px;
+      background: #3b82f6;
+      border-radius: 3px;
+      cursor: se-resize;
+    }
+    .legend { color:#667085; margin-bottom:12px; }
+    code { background:#eef1f6; padding:2px 6px; border-radius:4px; }
+  </style>
+</head>
+<body>
+  <h1>Minimal Dashboard Layout (drag + resize + auto-compact)</h1>
+  <div class="legend">Drag by the header. Resize via the blue handle. Grid cell size is <code>120×120</code>, columns = <code>6</code>.</div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+    // --- Grid config (tweak as you like) ---
+    const COLS    = 6;
+    const CELL_W  = 120;
+    const CELL_H  = 120;
+    const GAP     = 8;
+
+    // --- Layout state: x,y,w,h in grid units; "order" = array order ---
+    let layout = [
+      { id: 'A', x: 0, y: 0, w: 3, h: 2, title:'Widget A' },
+      { id: 'B', x: 3, y: 0, w: 3, h: 2, title:'Widget B' },
+      { id: 'C', x: 0, y: 2, w: 2, h: 2, title:'Widget C' },
+      { id: 'D', x: 2, y: 2, w: 4, h: 2, title:'Widget D' },
+    ];
+
+    const gridEl = document.getElementById('grid');
+
+    // --- Utilities ---
+    const px = v => v + 'px';
+    const cellToPxX = (x) => x * CELL_W + x * GAP;
+    const cellToPxY = (y) => y * CELL_H + y * GAP;
+
+    function rect(item) {
+      return { x:item.x, y:item.y, w:item.w, h:item.h };
+    }
+    function overlap(a, b) {
+      return !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y);
+    }
+    function collidingItems(layout, item, ignoreId) {
+      return layout.filter(it => it.id !== item.id && it.id !== ignoreId && overlap(rect(it), rect(item)));
+    }
+    function clamp(item) {
+      item.x = Math.max(0, Math.min(item.x, COLS - item.w));
+      item.y = Math.max(0, item.y);
+      item.w = Math.max(1, Math.min(item.w, COLS - item.x));
+      item.h = Math.max(1, item.h);
+    }
+
+    // --- Collision resolution: push-down simple algorithm ---
+    function resolveCollisions(layout, moving) {
+      // For each colliding item, push it below "moving" and keep going
+      let queue = [moving];
+      const seen = new Set([moving.id]);
+
+      while (queue.length) {
+        const current = queue.shift();
+        const hits = collidingItems(layout, current);
+        for (const hit of hits) {
+          // Move the hit down so it no longer overlaps current
+          hit.y = current.y + current.h;
+          clamp(hit);
+          if (!seen.has(hit.id)) {
+            seen.add(hit.id);
+            queue.push(hit);
+          }
+        }
+      }
+    }
+
+    // --- Compaction: after any move/resize, try to move each item upwards ---
+    function compactUp(layout) {
+      // Maintain array order (that's our "stable order")
+      for (const item of layout) {
+        // Slide up until no collision
+        let targetY = item.y;
+        while (targetY > 0) {
+          const test = { ...item, y: targetY - 1 };
+          if (collidingItems(layout, test).length === 0) {
+            targetY = targetY - 1;
+          } else {
+            break;
+          }
+        }
+        item.y = targetY;
+      }
+    }
+
+    // --- Render ---
+    function render() {
+      gridEl.style.minHeight = px((maxBottom(layout) * CELL_H) + (maxBottom(layout) * GAP) + CELL_H);
+
+      // Create dom nodes lazily
+      for (const item of layout) {
+        let el = document.querySelector(`[data-id="${item.id}"]`);
+        if (!el) {
+          el = document.createElement('div');
+          el.className = 'widget';
+          el.setAttribute('data-id', item.id);
+          el.innerHTML = `
+            <div class="header">${item.title}</div>
+            <div class="content">id: ${item.id} | ${item.w}×${item.h} cells</div>
+            <div class="resize" title="Resize"></div>
+          `;
+          gridEl.appendChild(el);
+
+          // wire interactions
+          wireDrag(el, item);
+          wireResize(el, item);
+        }
+
+        // Position and size
+        el.style.width  = px(item.w * CELL_W + (item.w - 1) * GAP);
+        el.style.height = px(item.h * CELL_H + (item.h - 1) * GAP);
+        el.style.transform = `translate(${px(cellToPxX(item.x))}, ${px(cellToPxY(item.y))})`;
+      }
+    }
+
+    function maxBottom(layout) {
+      let maxY = 0;
+      for (const it of layout) maxY = Math.max(maxY, it.y + it.h);
+      return maxY;
+    }
+
+    // --- Dragging ---
+    function wireDrag(el, item) {
+      const header = el.querySelector('.header');
+      let dragging = false;
+      let startX = 0, startY = 0;
+      let startItemX = 0, startItemY = 0;
+
+      header.addEventListener('pointerdown', (e) => {
+        dragging = true;
+        el.classList.add('dragging');
+        header.setPointerCapture(e.pointerId);
+        startX = e.clientX;
+        startY = e.clientY;
+        startItemX = item.x;
+        startItemY = item.y;
+      });
+
+      header.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+
+        const deltaXCells = Math.round(dx / (CELL_W + GAP));
+        const deltaYCells = Math.round(dy / (CELL_H + GAP));
+
+        const next = { ...item, x: startItemX + deltaXCells, y: startItemY + deltaYCells };
+        clamp(next);
+
+        // Update item, resolve collisions, compact, and render
+        item.x = next.x; item.y = next.y;
+        resolveCollisions(layout, item);
+        compactUp(layout);
+        render();
+      });
+
+      const endDrag = (e) => {
+        if (!dragging) return;
+        dragging = false;
+        el.classList.remove('dragging');
+        header.releasePointerCapture(e.pointerId);
+        render();
+      };
+      header.addEventListener('pointerup', endDrag);
+      header.addEventListener('pointercancel', endDrag);
+      header.addEventListener('pointerleave', () => {/* ignore */});
+    }
+
+    // --- Resizing ---
+    function wireResize(el, item) {
+      const handle = el.querySelector('.resize');
+      let resizing = false;
+      let startX = 0, startY = 0;
+      let startW = 0, startH = 0;
+
+      handle.addEventListener('pointerdown', (e) => {
+        resizing = true;
+        handle.setPointerCapture(e.pointerId);
+        startX = e.clientX;
+        startY = e.clientY;
+        startW = item.w;
+        startH = item.h;
+      });
+
+      handle.addEventListener('pointermove', (e) => {
+        if (!resizing) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+
+        const deltaW = Math.round(dx / (CELL_W + GAP));
+        const deltaH = Math.round(dy / (CELL_H + GAP));
+
+        const next = { ...item, w: startW + deltaW, h: startH + deltaH };
+        clamp(next);
+
+        item.w = next.w; item.h = next.h;
+
+        // When size grows/shrinks, resolve collisions & compact
+        resolveCollisions(layout, item);
+        compactUp(layout);
+        render();
+      });
+
+      const endResize = (e) => {
+        if (!resizing) return;
+        resizing = false;
+        handle.releasePointerCapture(e.pointerId);
+        render();
+      };
+      handle.addEventListener('pointerup', endResize);
+      handle.addEventListener('pointercancel', endResize);
+    }
+
+    // Initial render
+    render();
+  </script>
+</body>
+</html>

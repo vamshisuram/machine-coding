@@ -1,0 +1,11 @@
+.list {
+    & ul {
+        background-color: antiquewhite;
+    }
+
+    & li {
+        background-color: aqua;
+        list-style-type: none;
+        margin: 10px;
+    }
+}

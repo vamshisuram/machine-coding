@@ -1,10 +1,10 @@
 import './App.css'
-import { RenderCDF } from './ConfigDrivenForms/CDF'
+import { RenderList } from './SimpleDragDrag/List'
 
 function App() {
 
   return <div>
-    <RenderCDF />
+    <RenderList />
   </div>
 }
 
