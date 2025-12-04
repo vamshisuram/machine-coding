@@ -1,0 +1,94 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        .content-container { min-height: 500px; transition: opacity 0.2s; }
+        .loading { opacity: 0.5; }
+        .hidden { display: none; }
+        nav a { display: block; padding: 10px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="#about" data-target="about">About</a>
+        <a href="#services" data-target="services">Services</a>
+        <a href="#contact" data-target="contact">Contact</a>
+    </nav>
+    
+    <div id="content" class="content-container">
+        <!-- Initial content -->
+    </div>
+
+    <script>
+
+        const elm = document.getElementById('content')
+
+        // cache
+        const cache = new Map();
+        let currentPage = 'home'
+
+        const homeHTML = `
+            <div id="home">Welcome! Hover over links to prefetch content.</div>
+        `;
+        cache.set(currentPage, homeHTML)
+        loadHtml(homeHTML, currentPage)
+
+
+        function loadHtml(htmlText, page) {
+            elm.innerHTML = htmlText;
+            currentPage = page;
+            history.pushState({page}, '', `#${page}`)
+        }
+
+        function fetcher(page) {
+            return fetch(`./sections/${page}.html`)
+                .then(res => res.text())
+                .then(htmlText => {
+                    cache.set(page, htmlText)
+                });
+        }
+
+        // hover listener fetch - update cache
+        const links = document.querySelectorAll('nav a');
+        links.forEach(linkElm => {
+
+            const page = linkElm.getAttribute('data-target')
+
+            linkElm.addEventListener('mouseenter', () => {
+                if (!cache.has(page) && page !== currentPage) {
+                    fetcher(page)
+                }
+            });
+
+            linkElm.addEventListener('click', evt => {
+                evt.preventDefault();
+                if (page === currentPage) return;
+                const htmlText = cache.get(page)
+                loadHtml(htmlText, page)
+            })
+        });
+
+        // Handle browser back/forward
+        window.addEventListener('popstate', (e) => {
+            if (e.state && e.state.page) {
+                const page = e.state.page;
+                if (cache.has(page)) {
+                    elm.innerHTML = cache.get(page)
+                    currentPage = page;
+                } else {
+                    fetcher(page)
+                        .then(() => {
+                            elm.innerHTML = cache.get(page)
+                            currentPage = page;
+                        })
+                }
+            }
+        })
+
+
+    </script>
+
+    
+</body>
+</html>
